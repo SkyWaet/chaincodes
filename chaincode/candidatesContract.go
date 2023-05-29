@@ -3,7 +3,6 @@ package chaincode
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
@@ -12,11 +11,17 @@ type CandidatesContract struct {
 }
 
 type Candidate struct {
-	Name     string
-	NumVotes uint32
-	Party    string
-	Surname  string
-	ID       string
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	NumVotes uint32 `json:"numVotes"`
+	Party    string `json:"party"`
+	Surname  string `json:"surname"`
+}
+
+type CandidatesPage struct {
+	Content             []*Candidate `json:"content"`
+	FetchedRecordsCount int32        `json:"fetchedRecordsCount"`
+	Bookmark            string       `json:"bookmark"`
 }
 
 func (c *CandidatesContract) CreateCandidate(ctx contractapi.TransactionContextInterface, id string, name, surname, party string) (string, error) {
@@ -106,6 +111,14 @@ func (c *CandidatesContract) VoteFor(ctx contractapi.TransactionContextInterface
 	return ctx.GetStub().PutState(id, candidateJson)
 }
 
+func (c *CandidatesContract) GetVotesFor(ctx contractapi.TransactionContextInterface, id string) (uint32, error) {
+	candidate, err := c.ReadCandidate(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	return candidate.NumVotes, nil
+}
+
 func (c *CandidatesContract) RemoveVoteFrom(ctx contractapi.TransactionContextInterface, id string) error {
 	candidate, err := c.ReadCandidate(ctx, id)
 	if err != nil {
@@ -122,19 +135,14 @@ func (c *CandidatesContract) RemoveVoteFrom(ctx contractapi.TransactionContextIn
 	return ctx.GetStub().PutState(id, candidateJson)
 }
 
-func (c *CandidatesContract) ListCandidates(ctx contractapi.TransactionContextInterface, pageSize int32, startKey string) ([]*Candidate, error) {
-	resultsIterator, _, err := ctx.GetStub().GetStateByRangeWithPagination(startKey, "", pageSize, "")
+func (c *CandidatesContract) ListCandidates(ctx contractapi.TransactionContextInterface, pageSize int32, queryString, bookmark string) (*CandidatesPage, error) {
+	resultsIterator, metadata, err := ctx.GetStub().GetQueryResultWithPagination(queryString, pageSize, bookmark)
 	if err != nil {
 		return nil, err
 	}
-	defer func(resultsIterator shim.StateQueryIteratorInterface) {
-		err := resultsIterator.Close()
-		if err != nil {
+	defer resultsIterator.Close()
 
-		}
-	}(resultsIterator)
-
-	var candidates []*Candidate
+	candidates := make([]*Candidate, 0)
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
 		if err != nil {
@@ -147,5 +155,5 @@ func (c *CandidatesContract) ListCandidates(ctx contractapi.TransactionContextIn
 		}
 		candidates = append(candidates, &candidate)
 	}
-	return candidates, nil
+	return &CandidatesPage{Content: candidates, FetchedRecordsCount: metadata.FetchedRecordsCount, Bookmark: metadata.Bookmark}, nil
 }

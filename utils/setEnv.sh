@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function setBaseEnvironment() {
-  export ROOT_PATH=/home/skywaet/go/src/github.com/SkyWaet/fabric-samples
+  export ROOT_PATH=/home/skywaet/fabric
   export NETWORK_PATH=$ROOT_PATH/test-network
   export PATH=$ROOT_PATH/bin:$PATH
   export FABRIC_CFG_PATH=$ROOT_PATH/config/
